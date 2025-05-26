@@ -7,7 +7,7 @@ import {
   StyleSheet,
   ScrollView,
 } from "react-native";
-import bannerImage from "../assets/images/banner.jpg";
+
 import { router } from "expo-router";
 
 export default function MainPage() {
@@ -31,7 +31,7 @@ export default function MainPage() {
 
 
         {/* Banner Image */}
-        <Image source={bannerImage} style={styles.banner} resizeMode="cover" />
+        <Image source={require('../assets/images/banner.jpg')}  style={styles.banner} resizeMode="cover" />
 
         {/* Grid Section */}
         <View style={styles.gridContainer}>

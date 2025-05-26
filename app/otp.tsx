@@ -1,4 +1,3 @@
-// app/otp.js
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 import React, { useState } from "react";
@@ -10,40 +9,59 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { auth } from "../app/firebaseConfig";
+import { auth } from "../config/firebaseConfig";
 
 export default function OtpPage() {
   const router = useRouter();
-  const { verificationId, mobile, formData } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+
+  const verificationId = Array.isArray(params.verificationId)
+    ? params.verificationId[0]
+    : params.verificationId;
+
+  const mobile = Array.isArray(params.mobile)
+    ? params.mobile[0]
+    : params.mobile;
+
+  const formData = Array.isArray(params.formData)
+    ? params.formData[0]
+    : params.formData;
+
   const [otp, setOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
 
-  const handleVerifyOtp = async () => {
-    if (!otp || otp.length !== 6) {
-      Alert.alert("Error", "Please enter a valid 6-digit OTP");
-      return;
-    }
+const handleVerifyOtp = async () => {
+  if (!/^\d{6}$/.test(otp)) {
+    Alert.alert("Error", "Please enter a valid 6-digit OTP");
+    return;
+  }
 
-    setIsVerifying(true);
+  setIsVerifying(true);
 
-    try {
-      const credential = PhoneAuthProvider.credential(verificationId, otp);
-      await signInWithCredential(auth, credential);
-      
-      // Here you would typically save the user data to your database
-      const userData = JSON.parse(formData);
-      console.log("User registered:", userData);
-      
-      Alert.alert("Success", "Registration successful!");
-      router.replace("/home");
-    } catch (error) {
-      console.error("Verification error:", error);
-      Alert.alert("Error", error.message || "Invalid OTP. Please try again.");
-    } finally {
-      setIsVerifying(false);
-    }
-  };
+  try {
+    const credential = PhoneAuthProvider.credential(verificationId!, otp);
+    const userCredential = await signInWithCredential(auth, credential);
 
+    const idToken = await userCredential.user.getIdToken();
+    console.log("✅ Firebase Auth Successful");
+    console.log("🔥 Firebase ID Token:", idToken);
+    console.log("📱 Verified Phone Number:", userCredential.user.phoneNumber);
+
+    Alert.alert("Success", "Mobile number verified successfully!");
+
+    // You can now navigate to the next screen (e.g., home)
+    router.push("./index");
+  } catch (error: any) {
+    console.error("OTP Verification Failed:", error);
+    Alert.alert("Error", error.message || "Invalid OTP. Please try again.");
+  } finally {
+    setIsVerifying(false);
+  }
+};
+
+
+
+  // Component's JSX return is here — OUTSIDE handleVerifyOtp function!
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Verify Mobile Number</Text>
@@ -112,3 +130,4 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
+
