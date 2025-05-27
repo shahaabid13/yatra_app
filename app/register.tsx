@@ -1,9 +1,3 @@
-import { auth } from "../config/firebaseConfig";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { Picker } from "@react-native-picker/picker";
-import { useRouter } from "expo-router";
-import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
-import React, { useEffect, useState } from "react";
 import {
   Alert,
   Platform,
@@ -13,18 +7,26 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import React, { useState } from "react";
+import { Picker } from "@react-native-picker/picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  PhoneAuthProvider,
+  signInWithCredential,
+} from "firebase/auth";
+import { auth } from "../config/firebaseConfig";
+// import axios from "axios";
 
-// Extend the Window interface to include recaptchaVerifier
 declare global {
   interface Window {
     recaptchaVerifier?: RecaptchaVerifier;
   }
 }
 
-function RegisterPage() {
-  const router = useRouter();
-
+export default function RegisterWithOtpPage() {
   const [form, setForm] = useState({
     fullName: "",
     gender: "",
@@ -34,14 +36,19 @@ function RegisterPage() {
     mobile: "",
   });
 
+  const [otp, setOtp] = useState("");
+  const [verificationId, setVerificationId] = useState("");
+  const [firebaseToken, setFirebaseToken] = useState("");
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [isSending, setIsSending] = useState(false);
 
   const handleChange = (field: keyof typeof form, value: any) => {
     setForm({ ...form, [field]: value });
   };
 
-  const validate = () => {
+  const validateForm = () => {
     const { fullName, gender, dob, address, regNumber, mobile } = form;
     if (!fullName || !gender || !dob || !address || !regNumber || !mobile) {
       Alert.alert("Error", "All fields are required.");
@@ -60,35 +67,26 @@ function RegisterPage() {
 
   const setupRecaptcha = () => {
     if (Platform.OS === "web" && !window.recaptchaVerifier) {
-      // Create hidden div manually
-      let recaptchaDiv = document.getElementById("recaptcha-container");
-      if (!recaptchaDiv) {
-        recaptchaDiv = document.createElement("div");
-        recaptchaDiv.id = "recaptcha-container";
-        recaptchaDiv.style.display = "none";
-        document.body.appendChild(recaptchaDiv);
+      let container = document.getElementById("recaptcha-container");
+      if (!container) {
+        container = document.createElement("div");
+        container.id = "recaptcha-container";
+        document.body.appendChild(container);
       }
 
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        "recaptcha-container",
-        {
-          size: "invisible",
-          callback: (response: any) => {
-            console.log("Recaptcha verified", response);
-          },
-        }
-      );
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+        size: "invisible",
+        callback: (response: any) => console.log("reCAPTCHA resolved", response),
+      });
     }
   };
 
-  const handleSendOtp = async () => {
-    if (!validate()) return;
-    setIsSending(true);
+  const sendOtp = async () => {
+    if (!validateForm()) return;
 
+    setIsSendingOtp(true);
     try {
-      let appVerifier;
-
+      let appVerifier: any;
       if (Platform.OS === "web") {
         setupRecaptcha();
         appVerifier = window.recaptchaVerifier;
@@ -97,30 +95,92 @@ function RegisterPage() {
       const confirmation = await signInWithPhoneNumber(
         auth,
         "+91" + form.mobile,
-        appVerifier // `undefined` is OK for mobile
+        appVerifier
+      );
+      setVerificationId(confirmation.verificationId);
+      Alert.alert("Success", "OTP sent to your number.");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to send OTP.");
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (!/^\d{6}$/.test(otp)) {
+      Alert.alert("Invalid OTP", "Enter a valid 6-digit OTP.");
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    try {
+      const credential = PhoneAuthProvider.credential(verificationId, otp);
+      const userCredential = await signInWithCredential(auth, credential);
+      const idToken = await userCredential.user.getIdToken();
+
+      setFirebaseToken(idToken);
+      setIsOtpVerified(true);
+      Alert.alert("Verified", "Mobile number verified.");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "OTP verification failed.");
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!isOtpVerified) {
+      Alert.alert("Error", "Please verify your mobile number first.");
+      return;
+    }
+
+    try {
+      // 1. Register user
+      const res = await axios.post(
+        "http://localhost:8080/api/users/register",
+        {
+          fullName: form.fullName,
+          gender: form.gender,
+          dob: form.dob.toISOString().split("T")[0],
+          address: form.address,
+          nicNumber: form.regNumber,
+          phoneNumber: form.mobile,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${firebaseToken}`,
+            "Content-Type": "application/json",
+          },
+        }
       );
 
-      router.push({
-        pathname: "/otp",
-        params: {
-          verificationId: confirmation.verificationId,
-          mobile: form.mobile,
+      const userId = res.data?.id; // If API returns userId
+
+      // 2. Send location (mock coordinates here)
+      await axios.post(
+        "http://localhost:8080/api/users/location",
+        {
+          userId: userId || 123,
+          latitude: 34.083656,
+          longitude: 74.797371,
+          timestamp: new Date().toISOString(),
         },
-      });
-    } catch (error) {
-      console.error("OTP Error", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to send OTP.";
-      Alert.alert("Error", errorMessage);
-    } finally {
-      setIsSending(false);
+        {
+          headers: {
+            Authorization: `Bearer ${firebaseToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      Alert.alert("Success", "Registration complete!");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Registration failed.");
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 🛑 Removed View with id — now created programmatically */}
-
       <TextInput
         style={styles.input}
         placeholder="Full Name"
@@ -155,19 +215,18 @@ function RegisterPage() {
           <input
             type="date"
             onChange={(e) => {
-              setShowDatePicker(false);
               handleChange("dob", new Date(e.target.value));
+              setShowDatePicker(false);
             }}
-            style={{ marginBottom: 12, fontSize: 16, padding: 12 }}
           />
         ) : (
           <DateTimePicker
             value={form.dob}
             mode="date"
             display="default"
-            onChange={(event, selectedDate) => {
-              setShowDatePicker(false);
+            onChange={(e, selectedDate) => {
               if (selectedDate) handleChange("dob", selectedDate);
+              setShowDatePicker(false);
             }}
           />
         ))}
@@ -199,13 +258,44 @@ function RegisterPage() {
 
       <TouchableOpacity
         style={styles.button}
-        onPress={handleSendOtp}
-        disabled={isSending}
+        onPress={sendOtp}
+        disabled={isSendingOtp}
       >
         <Text style={styles.buttonText}>
-          {isSending ? "Sending OTP..." : "Send OTP"}
+          {isSendingOtp ? "Sending OTP..." : "Send OTP"}
         </Text>
       </TouchableOpacity>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Enter OTP"
+        keyboardType="number-pad"
+        maxLength={6}
+        value={otp}
+        onChangeText={setOtp}
+      />
+
+      <TouchableOpacity
+        style={[
+          styles.button,
+          { backgroundColor: isOtpVerified ? "green" : "#003366" },
+        ]}
+        onPress={verifyOtp}
+        disabled={isVerifyingOtp || isOtpVerified}
+      >
+        <Text style={styles.buttonText}>
+          {isOtpVerified ? "Verified" : isVerifyingOtp ? "Verifying..." : "Verify OTP"}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.button, { marginTop: 20 }]}
+        onPress={handleSubmit}
+      >
+        <Text style={styles.buttonText}>Submit</Text>
+      </TouchableOpacity>
+
+      {Platform.OS === "web" && <View id="recaptcha-container" />}
     </SafeAreaView>
   );
 }
@@ -215,13 +305,6 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "#f8f9fa",
     flex: 1,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 20,
-    color: "#003366",
   },
   input: {
     borderWidth: 1,
@@ -237,25 +320,21 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     borderRadius: 8,
     marginBottom: 12,
-    overflow: "hidden",
     backgroundColor: "#fff",
   },
   picker: {
     height: 50,
-    color: "#333",
   },
   button: {
     backgroundColor: "#003366",
     paddingVertical: 14,
     borderRadius: 8,
-    marginTop: 10,
+    alignItems: "center",
+    marginBottom: 10,
   },
   buttonText: {
     color: "#fff",
     fontSize: 17,
-    textAlign: "center",
     fontWeight: "600",
   },
 });
-
-export default RegisterPage;

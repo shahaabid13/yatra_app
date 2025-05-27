@@ -7,6 +7,7 @@ export default function MainPage() {
   const { regNumber } = useLocalSearchParams();
 
   return (
+    
     <View style={styles.wrapper}>
       {regNumber && <LocationSender regNumber={String(regNumber)} />} {/* Ensure it's a string */}
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -16,7 +17,7 @@ export default function MainPage() {
             <TouchableOpacity style={styles.button}>
               <Text style={styles.buttonText}>Login</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={() => router.push("/register")}>
+            <TouchableOpacity style={styles.button} onPress={() => router.push("../register")}>
               <Text style={styles.buttonText}>Register</Text>
             </TouchableOpacity>
           </View>

@@ -1,44 +1,62 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 import React, { useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { auth } from "../config/firebaseConfig";
 
 export default function OtpPage() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const verificationId = Array.isArray(params.verificationId) ? params.verificationId[0] : params.verificationId;
-  const mobile = Array.isArray(params.mobile) ? params.mobile[0] : params.mobile;
-  const regNumber = Array.isArray(params.regNumber) ? params.regNumber[0] : params.regNumber;
+  const verificationId = Array.isArray(params.verificationId)
+    ? params.verificationId[0]
+    : params.verificationId;
+
+  const mobile = Array.isArray(params.mobile)
+    ? params.mobile[0]
+    : params.mobile;
+
+  const regNumber = Array.isArray(params.regNumber)
+    ? params.regNumber[0]
+    : params.regNumber;
 
   const [otp, setOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
 
   const handleVerifyOtp = async () => {
     if (!/^\d{6}$/.test(otp)) {
-      Alert.alert("Error", "Please enter a valid 6-digit OTP");
+      Alert.alert("Invalid OTP", "Please enter a valid 6-digit OTP.");
+      return;
+    }
+
+    if (!verificationId) {
+      Alert.alert("Error", "Missing verification ID.");
       return;
     }
 
     setIsVerifying(true);
-
     try {
-      const credential = PhoneAuthProvider.credential(verificationId!, otp);
+      const credential = PhoneAuthProvider.credential(verificationId, otp);
       const userCredential = await signInWithCredential(auth, credential);
 
       console.log("✅ Auth Success:", userCredential.user.phoneNumber);
 
-      Alert.alert("Success", "Mobile number verified successfully!");
+      Alert.alert("Success", "Mobile number verified!");
 
-      // Pass regNumber to home page
       router.push({
         pathname: "/location",
         params: { regNumber: regNumber || "" },
       });
     } catch (error: any) {
       console.error("OTP Verification Failed:", error);
-      Alert.alert("Error", error.message || "Invalid OTP. Try again.");
+      Alert.alert("Error", error.message || "Invalid OTP. Please try again.");
     } finally {
       setIsVerifying(false);
     }
@@ -58,8 +76,18 @@ export default function OtpPage() {
         onChangeText={setOtp}
       />
 
-      <TouchableOpacity style={styles.button} onPress={handleVerifyOtp} disabled={isVerifying}>
-        <Text style={styles.buttonText}>{isVerifying ? "Verifying..." : "Verify OTP"}</Text>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={handleVerifyOtp}
+        disabled={isVerifying}
+      >
+        <Text style={styles.buttonText}>
+          {isVerifying ? "Verifying..." : "Verify OTP"}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => router.back()} style={styles.backLink}>
+        <Text style={styles.backText}>← Back</Text>
       </TouchableOpacity>
     </View>
   );
@@ -68,27 +96,28 @@ export default function OtpPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    padding: 24,
     backgroundColor: "#fff",
+    justifyContent: "center",
   },
   title: {
-    fontSize: 22,
-    fontWeight: "bold",
+    fontSize: 24,
+    fontWeight: "700",
     textAlign: "center",
-    marginVertical: 20,
+    marginBottom: 10,
     color: "#003366",
   },
   subtitle: {
     fontSize: 16,
     textAlign: "center",
     marginBottom: 30,
-    color: "#666",
+    color: "#444",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    backgroundColor: "#f9f9f9",
-    padding: 15,
+    borderColor: "#ccc",
+    backgroundColor: "#f4f4f4",
+    padding: 14,
     borderRadius: 8,
     fontSize: 18,
     textAlign: "center",
@@ -96,14 +125,22 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: "#003366",
-    padding: 15,
+    paddingVertical: 15,
     borderRadius: 8,
     alignItems: "center",
+    marginBottom: 20,
   },
   buttonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "bold",
   },
+  backLink: {
+    alignItems: "center",
+  },
+  backText: {
+    fontSize: 16,
+    color: "#003366",
+    textDecorationLine: "underline",
+  },
 });
-
