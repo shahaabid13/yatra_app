@@ -1,67 +1,49 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 import React, { useState } from "react";
-import {
-  Alert,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { auth } from "../config/firebaseConfig";
 
 export default function OtpPage() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const verificationId = Array.isArray(params.verificationId)
-    ? params.verificationId[0]
-    : params.verificationId;
-
-  const mobile = Array.isArray(params.mobile)
-    ? params.mobile[0]
-    : params.mobile;
-
-  const formData = Array.isArray(params.formData)
-    ? params.formData[0]
-    : params.formData;
+  const verificationId = Array.isArray(params.verificationId) ? params.verificationId[0] : params.verificationId;
+  const mobile = Array.isArray(params.mobile) ? params.mobile[0] : params.mobile;
+  const regNumber = Array.isArray(params.regNumber) ? params.regNumber[0] : params.regNumber;
 
   const [otp, setOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
 
-const handleVerifyOtp = async () => {
-  if (!/^\d{6}$/.test(otp)) {
-    Alert.alert("Error", "Please enter a valid 6-digit OTP");
-    return;
-  }
+  const handleVerifyOtp = async () => {
+    if (!/^\d{6}$/.test(otp)) {
+      Alert.alert("Error", "Please enter a valid 6-digit OTP");
+      return;
+    }
 
-  setIsVerifying(true);
+    setIsVerifying(true);
 
-  try {
-    const credential = PhoneAuthProvider.credential(verificationId!, otp);
-    const userCredential = await signInWithCredential(auth, credential);
+    try {
+      const credential = PhoneAuthProvider.credential(verificationId!, otp);
+      const userCredential = await signInWithCredential(auth, credential);
 
-    const idToken = await userCredential.user.getIdToken();
-    console.log("✅ Firebase Auth Successful");
-    console.log("🔥 Firebase ID Token:", idToken);
-    console.log("📱 Verified Phone Number:", userCredential.user.phoneNumber);
+      console.log("✅ Auth Success:", userCredential.user.phoneNumber);
 
-    Alert.alert("Success", "Mobile number verified successfully!");
+      Alert.alert("Success", "Mobile number verified successfully!");
 
-    // You can now navigate to the next screen (e.g., home)
-    router.push("./index");
-  } catch (error: any) {
-    console.error("OTP Verification Failed:", error);
-    Alert.alert("Error", error.message || "Invalid OTP. Please try again.");
-  } finally {
-    setIsVerifying(false);
-  }
-};
+      // Pass regNumber to home page
+      router.push({
+        pathname: "/location",
+        params: { regNumber: regNumber || "" },
+      });
+    } catch (error: any) {
+      console.error("OTP Verification Failed:", error);
+      Alert.alert("Error", error.message || "Invalid OTP. Try again.");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
-
-
-  // Component's JSX return is here — OUTSIDE handleVerifyOtp function!
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Verify Mobile Number</Text>
@@ -76,14 +58,8 @@ const handleVerifyOtp = async () => {
         onChangeText={setOtp}
       />
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleVerifyOtp}
-        disabled={isVerifying}
-      >
-        <Text style={styles.buttonText}>
-          {isVerifying ? "Verifying..." : "Verify OTP"}
-        </Text>
+      <TouchableOpacity style={styles.button} onPress={handleVerifyOtp} disabled={isVerifying}>
+        <Text style={styles.buttonText}>{isVerifying ? "Verifying..." : "Verify OTP"}</Text>
       </TouchableOpacity>
     </View>
   );

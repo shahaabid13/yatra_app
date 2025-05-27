@@ -1,9 +1,9 @@
+import { auth } from "../config/firebaseConfig";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
-import type { Auth } from "firebase/auth";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Platform,
@@ -14,7 +14,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { auth } from "../config/firebaseConfig";
 
 // Extend the Window interface to include recaptchaVerifier
 declare global {
@@ -22,6 +21,7 @@ declare global {
     recaptchaVerifier?: RecaptchaVerifier;
   }
 }
+
 function RegisterPage() {
   const router = useRouter();
 
@@ -60,71 +60,66 @@ function RegisterPage() {
 
   const setupRecaptcha = () => {
     if (Platform.OS === "web" && !window.recaptchaVerifier) {
-      debugger;
-      const recaptchaContainer = document.getElementById("recaptcha-container");
-      if (!recaptchaContainer) {
-        console.error("ReCAPTCHA container element not found.");
-        return;
+      // Create hidden div manually
+      let recaptchaDiv = document.getElementById("recaptcha-container");
+      if (!recaptchaDiv) {
+        recaptchaDiv = document.createElement("div");
+        recaptchaDiv.id = "recaptcha-container";
+        recaptchaDiv.style.display = "none";
+        document.body.appendChild(recaptchaDiv);
       }
+
       window.recaptchaVerifier = new RecaptchaVerifier(
-        auth as Auth, // ✅ Auth object as first argument
-        "recaptcha-container", // ✅ Element ID as second argument
+        auth,
+        "recaptcha-container",
         {
           size: "invisible",
           callback: (response: any) => {
-            console.log("Recaptcha solved:", response);
+            console.log("Recaptcha verified", response);
           },
         }
       );
     }
   };
 
-
   const handleSendOtp = async () => {
-    console.log("send clicked");
-  if (!validate()) return;
-  setIsSending(true);
+    if (!validate()) return;
+    setIsSending(true);
 
-  try {
-    let appVerifier;
+    try {
+      let appVerifier;
 
-    if (Platform.OS === "web") {
-      setupRecaptcha();
-      appVerifier = window.recaptchaVerifier;
+      if (Platform.OS === "web") {
+        setupRecaptcha();
+        appVerifier = window.recaptchaVerifier;
+      }
+
+      const confirmation = await signInWithPhoneNumber(
+        auth,
+        "+91" + form.mobile,
+        appVerifier // `undefined` is OK for mobile
+      );
+
+      router.push({
+        pathname: "/otp",
+        params: {
+          verificationId: confirmation.verificationId,
+          mobile: form.mobile,
+        },
+      });
+    } catch (error) {
+      console.error("OTP Error", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to send OTP.";
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setIsSending(false);
     }
-
-    const confirmation = await signInWithPhoneNumber(
-      auth,
-      "+91" + form.mobile,
-      appVerifier // this will be `undefined` on Android, which is fine
-    );
-
-    router.push({
-      pathname: "/otp",
-      params: {
-        verificationId: confirmation.verificationId,
-        mobile: form.mobile,
-      },
-    });
-  } catch (error) {
-    console.error("OTP Error", error);
-    const errorMessage = error instanceof Error ? error.message : "Failed to send OTP.";
-    Alert.alert("Error", errorMessage);
-  } finally {
-    setIsSending(false);
-  }
-};
-
-
-  // const currentYear = new Date().getFullYear();
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {Platform.OS === "web" && <View id="recaptcha-container" />}
-
-       {/* Required for Web */}
-
-     
+      {/* 🛑 Removed View with id — now created programmatically */}
 
       <TextInput
         style={styles.input}
@@ -155,8 +150,8 @@ function RegisterPage() {
         />
       </TouchableOpacity>
 
-      {showDatePicker && (
-        Platform.OS === "web" ? (
+      {showDatePicker &&
+        (Platform.OS === "web" ? (
           <input
             type="date"
             onChange={(e) => {
@@ -175,8 +170,7 @@ function RegisterPage() {
               if (selectedDate) handleChange("dob", selectedDate);
             }}
           />
-        )
-      )}
+        ))}
 
       <TextInput
         style={styles.input}

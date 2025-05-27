@@ -1,21 +1,15 @@
 import React from "react";
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-} from "react-native";
-
-import { router } from "expo-router";
+import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { useLocalSearchParams, router } from "expo-router";
+import LocationSender from "../app/location"; // ✅ FIXED PATH
 
 export default function MainPage() {
+  const { regNumber } = useLocalSearchParams();
+
   return (
-    
-    <View style={styles.wrapper}> {/* ✅ Wrapper View added */}
+    <View style={styles.wrapper}>
+      {regNumber && <LocationSender regNumber={String(regNumber)} />} {/* Ensure it's a string */}
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Navbar */}
         <View style={styles.navbar}>
           <Text style={styles.navTitle}>Amarnath Yatra</Text>
           <View style={styles.navButtons}>
@@ -23,17 +17,13 @@ export default function MainPage() {
               <Text style={styles.buttonText}>Login</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.button} onPress={() => router.push("/register")}>
-  <Text style={styles.buttonText}>Register</Text>
-</TouchableOpacity>
-
+              <Text style={styles.buttonText}>Register</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
+        <Image source={require('../assets/images/banner.jpg')} style={styles.banner} resizeMode="cover" />
 
-        {/* Banner Image */}
-        <Image source={require('../assets/images/banner.jpg')}  style={styles.banner} resizeMode="cover" />
-
-        {/* Grid Section */}
         <View style={styles.gridContainer}>
           <TouchableOpacity style={styles.gridItem}>
             <Text style={styles.gridText}>🏥 Nearby Hospitals</Text>
@@ -50,7 +40,6 @@ export default function MainPage() {
         </View>
       </ScrollView>
 
-      {/* ✅ Footer stays below everything */}
       <View style={styles.footer}>
         <Image
           source={require("../assets/images/msp-logo.png")}
