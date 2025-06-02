@@ -9,15 +9,15 @@ export default function MainPage() {
   return (
     
     <View style={styles.wrapper}>
-      {regNumber && <LocationSender regNumber={String(regNumber)} />} {/* Ensure it's a string */}
+      {regNumber && <LocationSender regNumber={String(regNumber)} />}
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.navbar}>
           <Text style={styles.navTitle}>Amarnath Yatra</Text>
           <View style={styles.navButtons}>
-            <TouchableOpacity style={styles.button}>
+            <TouchableOpacity style={styles.button} onPress={() => router.push("/login")}>
               <Text style={styles.buttonText}>Login</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={() => router.push("../register")}>
+            <TouchableOpacity style={styles.button} onPress={() => router.push("/register")}>
               <Text style={styles.buttonText}>Register</Text>
             </TouchableOpacity>
           </View>

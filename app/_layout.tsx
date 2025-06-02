@@ -11,6 +11,7 @@ export default function Layout() {
           headerShown: true,       // ✅ Hides default header if you're using a custom one
         }}
       />
+      <Stack.Screen name="register" />
     </Stack>
   );
 }
